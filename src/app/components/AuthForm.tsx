@@ -25,12 +25,13 @@ const styles = stylex.create({
     padding: "15px 15px",
     width: "70%",
     height: "auto",
-    maxWidth: "400px",
+    maxWidth: "350px",
     boxShadow: "rgba(17, 17, 26, 0.1) 0px 4px 16px, rgba(17, 17, 26, 0.1) 0px 8px 24px, rgba(17, 17, 26, 0.1) 0px 16px 56px",
+    fontFamily: "Roboto Mono, monospace",
   },
   headingStyle: {
-    fontSize: "1.5rem",
-    fontWeight: "bold",
+    // fontSize: "1.5rem",
+    // fontWeight: "bold",
     textAlign: "center",
   },
   inputStyle: (errorValue) => ({
@@ -47,6 +48,7 @@ const styles = stylex.create({
       boxShadow: "0 0 5px rgba(45, 67, 86, 0.5), 0 0 10px rgba(45, 67, 86, 0.5)",
       outline: "none",
     },
+    fontFamily: "Press Start 2P, system-ui"
   }),
   inputContainer: {
     display: "flex",
@@ -75,7 +77,7 @@ const styles = stylex.create({
     },
   },
   switchModeTextStyle: {
-    fontSize: "0.875rem",
+    // fontSize: "0.875rem",
     textAlign: "center",
     color: "#435B66",
   },
@@ -166,7 +168,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ initialMode = "login" }) => {
     return (
       <div {...stylex.props(styles.containerStyle)}>
         <form onSubmit={handleSubmit} {...stylex.props(styles.formStyle)}>
-          <h1 {...stylex.props(styles.headingStyle)}>{mode === "login" ? "Login" : "Sign Up"}</h1>
+          <h2 {...stylex.props(styles.headingStyle)}>{mode === "login" ? "Login" : "Sign Up"}</h2>
           <div {...stylex.props(styles.inputContainer)}>
             <input
               name='email'
