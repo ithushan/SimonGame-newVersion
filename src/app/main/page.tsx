@@ -7,10 +7,16 @@ import { updateAuthDetails } from '@/redux/slices/authSlice';
 import { useDispatch } from 'react-redux';
 import * as stylex from '@stylexjs/stylex';
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { authStateListener, getScore, isEmailVerified, storeScore } from "@/services/auth";
+import Loader from "../components/Loader";
+import PopUp from "./popUp";
+import GameOverPopup from './gameOver';
+import UpArrow from "../../../public/assets/incons/upArrow.svg";
+import DownArrow from "../../../public/assets/incons/downArrow.svg";
 
 const styles = stylex.create({
-  main: {
+  main: (backGround) => ({
     width: "100%",
     height: "98vh",
     display: "flex",
@@ -20,8 +26,8 @@ const styles = stylex.create({
     padding: "0 10px",
     boxSizing: "border-box",
     overflow: "hidden",
-    backgroundImage: "linear-gradient(to right, #2c3e50,#3c3f41,#2c3e50)",
-  },
+    backgroundImage: backGround ? "linear-gradient(to right, #8E0E00,#1F1C18)" : "linear-gradient(to right, #2c3e50,#3c3f41,#2c3e50)",
+  }),
   header: {
     width: "98%",
     height: "10%",
@@ -47,8 +53,9 @@ const styles = stylex.create({
   },
   pf: {
     height: "50%",
-    width: "10%",
+    width: "auto",
     cursor: "pointer",
+    padding: "3px",
     backgroundColor: "#5C8984",
     borderRadius: "4px",
     fontSize: "0.9rem",
@@ -63,7 +70,7 @@ const styles = stylex.create({
   },
   dropdown: {
     position: "absolute",
-    top: "35px",
+    top: "38px",
     right: 0,
     backgroundColor: " #5C8984",
     listStyle: "none",
@@ -124,6 +131,13 @@ const styles = stylex.create({
     alignItems: "center",
     justifyContent: "space-around",
   },
+  pLink: {
+    cursor: "pointer",
+    transition: "transform .2s",
+    ":hover": {
+      "transform": "scale(1.2)"
+    }
+  },
   centerArea: {
     paddingTop: "60px",
     borderRadius: "12px",
@@ -151,7 +165,7 @@ const styles = stylex.create({
       flexDirection: "column",
     },
   },
-  btn: (color) => ({
+  btn: (color, isActive) => ({
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -163,22 +177,19 @@ const styles = stylex.create({
     outline: "none",
     backgroundColor: color,
     borderColor: {
-      default: color,
+      default: isActive ? "#fff3bfd7" : color,
       ":active": " #fff3bfd7"
     },
     cursor: "pointer",
     opacity: {
-      default: 0.8,
+      default: isActive ? 0.4 : 0.8,
       ":active": 0.4
     },
-    // boxShadow: "rgba(60, 64, 67, 0.3) 0px 1px 2px 0px, rgba(60, 64, 67, 0.15) 0px 2px 6px 2px",
-    // boxShadow: "rgba(50, 50, 93, 0.25) 0px 50px 100px - 20px, rgba(0, 0, 0, 0.3) 0px 30px 60px - 30px, rgba(10, 37, 64, 0.35) 0px - 2px 6px 0px inset",
-    // boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2), 0 8px 16px rgba(0, 0, 0, 0.1)",
-    boxShadow: `
-    rgba(255, 255, 255, 0.15) 0px 1px 3px, 
-    rgba(0, 0, 0, 0.3) 0px 4px 8px, 
-    ${color} 0px 0px 15px -3px
-  `,
+    boxShadow: isActive
+      ? `0 0 20px 5px ${color}, rgba(255, 255, 255, 0.5) 0px 0px 20px`
+      : `rgba(255, 255, 255, 0.15) 0px 1px 3px, 
+       rgba(0, 0, 0, 0.3) 0px 4px 8px, 
+       ${color} 0px 0px 15px -3px`,
     "@media (max-width: 768px)": {
       height: "100px",
       width: "100px",
@@ -203,61 +214,204 @@ const styles = stylex.create({
 export default function Todo() {
   // redux related 
   const userEmail: string = useAppSelector((state) => state.AuthReducer.authValue.email);
-  const authStatus: boolean = useAppSelector((state) => state.AuthReducer.authValue.isLoggedIn);
+  const uid: string = useAppSelector((state) => state.AuthReducer.authValue.uid);
+  const token: string = useAppSelector((state) => state.AuthReducer.authValue.token);
+  // const authStatus: boolean = useAppSelector((state) => state.AuthReducer.authValue.isLoggedIn);
+
   const dispatch = useDispatch()
   const router = useRouter();
   // states
   const [isDropdownVisible, setIsDropdownVisible] = useState(false);
-  const [scoreBoard, setScoreBoad] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [authStatus, setAuthStatus] = useState(false);
+  const [emaiVerified, setEmailVerified] = useState<boolean | null>(null);
+  const [timeElapsed, setTimeElapsed] = useState(0);
+
+  // new game logic
+  const [activeButton, setActiveButton] = useState<string | null>(null);
+  const [gameOverStyle, setGameOverStyle] = useState(false);
+  const [isGameOver, setIsGameOver] = useState(false);
+  const [gameOverVisible, setGameOverVisible] = useState(false);
+
+  const [gameState, setGameState] = useState<boolean | null>(null);
+  const [gameLevel, setGameLevel] = useState<number>(0);
+  const [gamePattern, setGamePattern] = useState<string[]>([]);
+  const [userSelectedPattern, setUserSelectedPattern] = useState<string[]>([]);
+  const [message, setMessage] = useState("");
+  const [score, setScore] = useState<number>(0);
+
 
   // sounds path 
-  const c1 = "/assets/sounds/c1.wav";
-  const c2 = "/assets/sounds/c2.wav";
-  const c3 = "/assets/sounds/c3.wav";
-  const c4 = "/assets/sounds/c4.wav";
+  type Color = keyof typeof sounds;
+  const colors: Color[] = ["red", "blue", "green", "yellow"];
 
-  const toggleDropdown = () => {
-    setIsDropdownVisible((prev) => !prev);
+  const sounds = {
+    red: "/assets/sounds/c1.wav",
+    blue: "/assets/sounds/c2.wav",
+    green: "/assets/sounds/c3.wav",
+    yellow: "/assets/sounds/c4.wav",
   };
-
-  const logout = () => {
-    dispatch(updateAuthDetails({ email: "", isLoggedIn: false }));
-    router.push('/');
-  }
-
-  const startGame = () => {
-    setScoreBoad(true);
-    playSound("/assets/sounds/start.mp3");
-  }
 
   const playSound = (soundPath: any) => {
     const audio = new Audio(soundPath);
     audio.play();
   };
 
+  const blinkButton = (color: Color) => {
+    setActiveButton(color);
+    playSound(sounds[color]);
+
+    setTimeout(() => {
+      setActiveButton(null);
+    }, 500);
+  };
+
+  const startGame = () => {
+    setIsGameOver(false);
+    if (!gameState) {
+      setGameState(true);
+      setGameLevel(0);
+      setGamePattern([]);
+      setUserSelectedPattern([]);
+      setMessage("Game Started!");
+      nextLevel();
+    }
+  };
+
+  const nextLevel = () => {
+    const randomColor: Color = colors[Math.floor(Math.random() * 4)];
+    setGamePattern((prevPattern) => [...prevPattern, randomColor]);
+    setUserSelectedPattern([]);
+    setGameLevel((prevLevel) => prevLevel + 1);
+    setMessage(`Level ${gameLevel + 1}`);
+    playSound(randomColor);
+    blinkButton(randomColor);
+  };
+
+  const handleUserClick = async (color: Color) => {
+    if (!gameState) return;
+
+    const newUserPattern = [...userSelectedPattern, color];
+    setUserSelectedPattern(newUserPattern);
+    playSound(color);
+    blinkButton(color);
+
+    // Check the user's pattern
+    const currentIndex = newUserPattern.length - 1;
+    if (newUserPattern[currentIndex] === gamePattern[currentIndex]) {
+      if (newUserPattern.length === gamePattern.length) {
+        setTimeout(nextLevel, 1000);
+      }
+    } else {
+      const oldScore = await getScore(uid)
+      if(oldScore && oldScore < score){
+        storeScore(uid,score); // store score database
+      }
+      setMessage("Game Over! Press Start to Retry.");
+      setIsGameOver(true);
+      setGameOverVisible(true);
+      setGameState(false);
+      setScore(gameLevel);
+      setGameLevel(0);
+      setGamePattern([]);
+      playSound("/assets/sounds/wrong.wav");
+      setGameOverStyle(true);
+      setTimeout(() => {
+        setGameOverStyle(false);
+      }, 500)
+    }
+  };
+
+  const toggleDropdown = () => {
+    setIsDropdownVisible((prev) => !prev);
+  };
+
+  useEffect(() => {
+    setTimeout(() => {
+      setGameOverVisible(false)
+    }, 2500)
+  }, [gameOverVisible])
+
+  const logout = () => {
+    dispatch(updateAuthDetails({
+      email: "",
+      uid: "",
+      token: "",
+      isLoggedIn: false,
+    }));
+    router.push('/');
+  }
+
+  useEffect(() => {
+    const unsubscribe = authStateListener((user) => {
+      if (user) {
+        setLoading(false);
+        // console.log("User logged in:", user.uid);
+        if (user.uid === uid) {
+          setAuthStatus(true);
+        } else {
+          setAuthStatus(false);
+        }
+      } else {
+        // console.log("User signed out.");
+        setAuthStatus(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [uid])
+
+  useEffect(() => {
+    const checkEmailVerification = async () => {
+      const result = await isEmailVerified();
+      setEmailVerified(result);
+      // console.log("Email verification status:", result);
+    };
+
+    // Delay the check for a smoother UX
+    const timer = setTimeout(checkEmailVerification, 1000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (loading) {
+    return <Loader />
+  }
+
   if (authStatus) {
     return (
-      <div {...stylex.props(styles.main)}>
+      <div {...stylex.props(styles.main(gameOverStyle))}>
         <div {...stylex.props(styles.header)}>
-          <h1 {...stylex.props(styles.heading)}>Simon Game</h1>
+          <h1 {...stylex.props(styles.heading)}>{isGameOver ? "Game Over" : "Simon Game"}</h1>
         </div>
 
         <div  {...stylex.props(styles.section)}>
-          <div {...stylex.props(styles.topPanel(scoreBoard))}>
+          <div {...stylex.props(styles.topPanel(gameLevel > 0))}>
             {
-              scoreBoard && (
+              gameLevel > 0 && (
                 <div {...stylex.props(styles.topPanelIn)}>
-                  <p>Score: <span style={{ fontWeight: "600" }}>50</span> </p>
+                  <p>
+                    Score: <span style={{ fontWeight: "600" }}>{gameLevel}</span>
+                  </p>
                 </div>
               )
             }
             <div {...stylex.props(styles.pf)} onClick={toggleDropdown}>
-              <p>{userEmail.split("@")[0]}</p>
+              <p>{userEmail.split("@")[0]}
+                <span>
+                  <Image
+                    alt="arrow"
+                    src={isDropdownVisible ? UpArrow : DownArrow}
+                    width={20}
+                    height={20}
+                  />
+                </span>
+              </p>
               {isDropdownVisible && (
                 <ul {...stylex.props(styles.dropdown)}>
                   <li {...stylex.props(styles.dropdownItem)} onClick={logout}>Logout</li>
-                  <li {...stylex.props(styles.dropdownItem)}>Account</li>
-                  <li {...stylex.props(styles.dropdownItem)}>Settings</li>
+                  <li {...stylex.props(styles.dropdownItem)} style={{ cursor: "not-allowed" }} >Account</li>
+                  <li {...stylex.props(styles.dropdownItem)} style={{ cursor: "not-allowed" }} >Settings</li>
                 </ul>
               )}
             </div>
@@ -265,26 +419,42 @@ export default function Todo() {
 
           <div {...stylex.props(styles.centerArea)}>
             <div {...stylex.props(styles.row)}>
-              <button {...stylex.props(styles.btn("rgb(211, 11, 11)"))} onClick={() => playSound(c1)} ></button>
-              <button {...stylex.props(styles.btn("rgb(18, 225, 18)"))} onClick={() => playSound(c2)} ></button>
+              <button {...stylex.props(styles.btn("rgb(211, 11, 11)", activeButton === 'red'))} onClick={() => handleUserClick('red')} ></button>
+              <button {...stylex.props(styles.btn("rgb(18, 225, 18)", activeButton === 'green'))} onClick={() => handleUserClick('green')} ></button>
             </div>
             <div {...stylex.props(styles.row)}>
-              <button {...stylex.props(styles.btn("rgb(13, 51, 222)"))} onClick={() => playSound(c3)} ></button>
-              <button {...stylex.props(styles.btn("rgb(156, 186, 9)"))} onClick={() => playSound(c4)} ></button>
+              <button {...stylex.props(styles.btn("rgb(13, 51, 222)", activeButton === 'blue'))} onClick={() => handleUserClick('blue')} ></button>
+              <button {...stylex.props(styles.btn("rgb(156, 186, 9)", activeButton === 'yellow'))} onClick={() => handleUserClick('yellow')} ></button>
             </div>
           </div>
 
           <div  {...stylex.props(styles.bottomPanel)}>
             <div {...stylex.props(styles.bottomPanelIn)}>
-              <p>00:00</p>
-              <p>score:15</p>
-              <p style={{ cursor: "pointer", }} onClick={startGame}>Start</p>
-              <p>Push | Play</p>
-              <p>Mode</p>
-              <p>leaderboard</p>
+              {/* <p>{formatTime(timeElapsed)}</p> */}
+              {/* <p>score:15</p> */}
+              <p {...stylex.props(styles.pLink)} onClick={startGame}>
+                {isGameOver ? "Start again" : "Start"}
+              </p>
+              <p style={{ cursor: "not-allowed" }} {...stylex.props(styles.pLink)}  >Push | Play</p>
+              <p style={{ cursor: "not-allowed" }}  {...stylex.props(styles.pLink)}  >Mode</p>
+              <p {...stylex.props(styles.pLink)}  >leaderboard</p>
             </div>
           </div>
         </div>
+
+        {
+          emaiVerified === false &&
+          <PopUp
+            props="Please check your email to verify your account. After verifying, refresh this page to continue."
+          />
+        }
+
+
+        {gameOverVisible &&
+          <GameOverPopup
+            props={`Your score set it into leaderboard : ${score}`}
+          />
+        }
       </div>
     );
   } else {

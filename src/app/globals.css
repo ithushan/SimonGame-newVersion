@@ -20,5 +20,9 @@ body {
   font-family: "Press Start 2P", system-ui;
   font-weight: 400;
   font-style: normal;
-  /* background-image: linear-gradient("to right, #2c3e50,#3c3f41,#2c3e50"); */
+  background-image: linear-gradient("to right, #2c3e50,#3c3f41,#2c3e50");
 }
+
+/* .game-over {
+  background-color: rgb(100, 39, 39);
+} */

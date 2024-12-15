@@ -7,14 +7,17 @@ import { useDispatch } from 'react-redux';
 import { useAppSelector } from '@/redux/hooks';
 import Loader from '../components/Loader';
 import { updateAuthDetails } from '@/redux/slices/authSlice';
+import { signIn, signUp } from '@/services/auth';
+import { AuthFormProps } from '../../../types';
 
 const styles = stylex.create({
   containerStyle: {
     width: "100%",
-    height: "90vh",
+    height: "98vh",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    backgroundImage: "linear-gradient(to right, #2c3e50,#3c3f41,#2c3e50)"
   },
   formStyle: {
     display: "flex",
@@ -28,6 +31,9 @@ const styles = stylex.create({
     maxWidth: "350px",
     boxShadow: "rgba(17, 17, 26, 0.1) 0px 4px 16px, rgba(17, 17, 26, 0.1) 0px 8px 24px, rgba(17, 17, 26, 0.1) 0px 16px 56px",
     fontFamily: "Roboto Mono, monospace",
+    backgroundColor: "#5C8984",
+    opacity: 0.6,
+    borderRadius: "4px",
   },
   headingStyle: {
     // fontSize: "1.5rem",
@@ -73,13 +79,12 @@ const styles = stylex.create({
     textAlign: "center",
     cursor: "pointer",
     ":hover": {
-      backgroundColor: "#40534C",
+      backgroundColor: "#2c3e50",
     },
   },
   switchModeTextStyle: {
     // fontSize: "0.875rem",
     textAlign: "center",
-    color: "#435B66",
   },
   linkStyle: {
     color: "#2D4356",
@@ -93,7 +98,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ initialMode = "login" }) => {
   const [mode, setMode] = useState<"login" | "signup">(initialMode);
   const [loading, setLoading] = useState(false);
   const dispatch = useDispatch()
-  const authStatus: boolean = useAppSelector((state) => state.AuthReducer.authValue.isLoggedIn);
+  // const uid: string = useAppSelector((state) => state.AuthReducer.authValue.uid);
+  // const token: string = useAppSelector((state) => state.AuthReducer.authValue.token);
+  // const authStatus: boolean = useAppSelector((state) => state.AuthReducer.authValue.isLoggedIn);
   const router = useRouter();
   const [form, setForm] = useState({
     email: '',
@@ -153,73 +160,100 @@ const AuthForm: React.FC<AuthFormProps> = ({ initialMode = "login" }) => {
 
     if (!hasError) {
       setError({ email: "", password: "" });
-      setLoading(true);
       authSubmit();
     }
   };
 
-  const authSubmit = () => {
-    dispatch(updateAuthDetails({ email: form.email, isLoggedIn: true }));
+  const authSubmit = async () => {
+    setLoading(true);
+    if (mode === "signup") {
+      const result = await signUp(form.email, form.password);
+      if (result.success) {
+        dispatch(updateAuthDetails({
+          email: result.email ? result.email : "email-null",
+          uid: result.uid ? result.uid : "uid-null",
+          token: result.token ? result.token : "token-null",
+          isLoggedIn: true,
+        }));
+        alert("Sign-up successful! Please check your email for verification.");
+        router.push('/main');
+      } else {
+        alert(`Sign-up failed: ${result.error}`);
+      }
+    } else {
+      const result = await signIn(form.email, form.password);
+      if (result.success) {
+        dispatch(updateAuthDetails({
+          email: result.email ? result.email : "email-null",
+          uid: result.uid ? result.uid : "uid-null",
+          token: result.token ? result.token : "token-null",
+          isLoggedIn: true,
+        }));
+        alert("Sign-in successful!");
+        router.push('/main');
+      } else {
+        alert(`Sign-in failed: ${result.error}`);
+      }
+    }
+
     setLoading(false);
-    router.push('/main');
   }
 
-  if (!authStatus) {
-    return (
-      <div {...stylex.props(styles.containerStyle)}>
-        <form onSubmit={handleSubmit} {...stylex.props(styles.formStyle)}>
-          <h2 {...stylex.props(styles.headingStyle)}>{mode === "login" ? "Login" : "Sign Up"}</h2>
-          <div {...stylex.props(styles.inputContainer)}>
-            <input
-              name='email'
-              type="email"
-              placeholder="Email"
-              value={form.email}
-              onChange={handleChange}
-              {...stylex.props(styles.inputStyle(error.email))}
-            />
-            {error.email && <p {...stylex.props(styles.errorStyle)}>{error.email}</p>}
-          </div>
+  // if (!authStatus) {
+  return (
+    <div {...stylex.props(styles.containerStyle)}>
+      <form onSubmit={handleSubmit} {...stylex.props(styles.formStyle)}>
+        <h2 {...stylex.props(styles.headingStyle)}>{mode === "login" ? "Login" : "Sign Up"}</h2>
+        <div {...stylex.props(styles.inputContainer)}>
+          <input
+            name='email'
+            type="email"
+            placeholder="Email"
+            value={form.email}
+            onChange={handleChange}
+            {...stylex.props(styles.inputStyle(error.email))}
+          />
+          {error.email && <p {...stylex.props(styles.errorStyle)}>{error.email}</p>}
+        </div>
 
-          <div {...stylex.props(styles.inputContainer)}>
-            <input
-              name='password'
-              type="password"
-              placeholder="Password"
-              value={form.password}
-              onChange={handleChange}
-              {...stylex.props(styles.inputStyle(error.password))}
-            />
-            {error.password && <p {...stylex.props(styles.errorStyle)}>{error.password}</p>}
-          </div>
+        <div {...stylex.props(styles.inputContainer)}>
+          <input
+            name='password'
+            type="password"
+            placeholder="Password"
+            value={form.password}
+            onChange={handleChange}
+            {...stylex.props(styles.inputStyle(error.password))}
+          />
+          {error.password && <p {...stylex.props(styles.errorStyle)}>{error.password}</p>}
+        </div>
 
-          <button type="submit" {...stylex.props(styles.buttonStyle)}>
-            {mode === "login" ? "Login" : "Sign Up"}
-          </button>
+        <button type="submit" {...stylex.props(styles.buttonStyle)}>
+          {mode === "login" ? "Login" : "Sign Up"}
+        </button>
 
-          <p {...stylex.props(styles.switchModeTextStyle)}>
-            {mode === "login" ? "Don't have an account?" : "Already have an account?"}{" "}
-            <span
-              {...stylex.props(styles.linkStyle)}
-              onClick={() => setMode(mode === "login" ? "signup" : "login")}
-            >
-              {mode === "login" ? "Sign Up" : "Login"}
-            </span>
-          </p>
-        </form>
+        <p {...stylex.props(styles.switchModeTextStyle)}>
+          {mode === "login" ? "Don't have an account?" : "Already have an account?"}{" "}
+          <span
+            {...stylex.props(styles.linkStyle)}
+            onClick={() => setMode(mode === "login" ? "signup" : "login")}
+          >
+            {mode === "login" ? "Sign Up" : "Login"}
+          </span>
+        </p>
+      </form>
 
-        {loading &&
-          <div>
-            <p>Loading</p>
-            <Loader />
-          </div>
+      {loading &&
+        <div>
+          <Loader />
+        </div>
 
-        }
-      </div>
-    );
-  } else {
-    router.push('/main');
-  }
+      }
+    </div>
+  );
+  // } else {
+  //   router.push('/main');
+  // }
 };
 
 export default AuthForm;
