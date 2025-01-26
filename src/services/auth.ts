@@ -115,19 +115,45 @@ export const storeScore = async (uid: string, score: number) => {
     }
 }
 
-export const getScore = async (uid: string): Promise<number | null> => {
+export const getScore = async (uid: string): Promise<number> => {
     try {
         const userRef = ref(db, `user/${uid}`);
         const usersnap = await get(userRef);
 
         if (usersnap.exists()) {
             const userData: userData = usersnap.val();
-            return userData.score ?? null; 
+            return userData.score ?? 0;
         }
 
-        return null; 
+        return 0;
     } catch (error) {
-        console.error("Error fetching user score:", error);
-        return null; 
+        console.log("Error fetching user score:", error);
+        return 0;
     }
 };
+
+export const getAllUserScores = async (): Promise<{ email: string; score: number; }[]> => {
+    try {
+        const useRef = ref(db, `user/`);
+        const userSnapDetails = await get(useRef);
+        if (userSnapDetails.exists()) {
+            const data = userSnapDetails.val();
+            // console.log("userDetails: ", data);
+            const parsedData: { email: any; score: any; }[] = Object.keys(data).map(key => ({
+                email: data[key].email,
+                score: data[key].score
+            }));
+            console.log("Parsed user details: ", parsedData);
+            return parsedData;
+        }
+        else {
+            console.log("User details not found!");
+            return [];
+
+        }
+    } catch (error) {
+        console.log("getAllUserScores: ", error);
+        return [];
+
+    }
+}

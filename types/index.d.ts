@@ -21,7 +21,7 @@ export interface signInRespnse {
 
 export type userData  = {
     uid:string;
-    score?:number;
+    score:number;
     email:string;
     createdAt:number;
 }

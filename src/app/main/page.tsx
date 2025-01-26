@@ -2,18 +2,25 @@
 "use client";
 // import { useState } from 'react';
 import { useRouter } from "next/navigation";
-import { useAppSelector } from '@/redux/hooks';
-import { updateAuthDetails } from '@/redux/slices/authSlice';
-import { useDispatch } from 'react-redux';
-import * as stylex from '@stylexjs/stylex';
+import { useAppSelector } from "@/redux/hooks";
+import { updateAuthDetails } from "@/redux/slices/authSlice";
+import { useDispatch } from "react-redux";
+import * as stylex from "@stylexjs/stylex";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import { authStateListener, getScore, isEmailVerified, storeScore } from "@/services/auth";
+import {
+  authStateListener,
+  getScore,
+  isEmailVerified,
+  storeScore,
+} from "@/services/auth";
 import Loader from "../components/Loader";
 import PopUp from "./popUp";
-import GameOverPopup from './gameOver';
-import UpArrow from "../../../public/assets/incons/upArrow.svg";
+import GameOverPopup from "./gameOver";
+import Help from "../../../public/assets/incons/help.svg";
 import DownArrow from "../../../public/assets/incons/downArrow.svg";
+import HelpModel from "./help";
+import LeaderBoard from "./leaderBoard";
 
 const styles = stylex.create({
   main: (backGround) => ({
@@ -26,7 +33,9 @@ const styles = stylex.create({
     padding: "0 10px",
     boxSizing: "border-box",
     overflow: "hidden",
-    backgroundImage: backGround ? "linear-gradient(to right, #8E0E00,#1F1C18)" : "linear-gradient(to right, #2c3e50,#3c3f41,#2c3e50)",
+    backgroundImage: backGround
+      ? "linear-gradient(to right, #8E0E00,#1F1C18)"
+      : "linear-gradient(to right, #2c3e50,#3c3f41,#2c3e50)",
   }),
   header: {
     width: "98%",
@@ -40,7 +49,7 @@ const styles = stylex.create({
       fontSize: "1.5rem",
     },
     padding: " 0px 10px",
-    marginTop: "1rem"
+    marginTop: "1rem",
   },
   heading: {
     width: "100%",
@@ -53,20 +62,32 @@ const styles = stylex.create({
   },
   pf: {
     height: "50%",
-    width: "auto",
+    width: "15%",
     cursor: "pointer",
     padding: "3px",
     backgroundColor: "#5C8984",
     borderRadius: "4px",
-    fontSize: "0.9rem",
+    fontSize: "0.7rem",
     "@media (max-width: 768px)": {
-      fontSize: "1rem",
+      fontSize: "0.75rem",
     },
     display: "flex",
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "space-evenly",
     position: "relative",
-    fontFamily: "Roboto Mono, monospace",
+  },
+  truncatedText: {
+    display: "inline-block",
+    maxWidth: "10ch",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  arrowIcon: {
+    transition: "transform 0.3s",
+  },
+  arrowIconOpen: {
+    transform: "rotate(180deg)",
   },
   dropdown: {
     position: "absolute",
@@ -108,12 +129,12 @@ const styles = stylex.create({
   },
   bottomPanel: {
     borderRadius: "12px",
-    fontFamily: "Roboto Mono, monospace",
+    // fontFamily: "Roboto Mono, monospace",
     fontSize: "1rem",
     backgroundColor: "#5C8984",
     opacity: 0.7,
     height: "10%",
-    width: " 80%",
+    width: " 55%",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -122,21 +143,43 @@ const styles = stylex.create({
       height: "auto",
       padding: "10px",
     },
+    boxShadow: `rgba(255, 255, 255, 0.15) 0px 1px 3px,  rgba(0, 0, 0, 0.3) 0px 4px 8px, #5C8984 0px 0px 15px -3px`,
   },
   bottomPanelIn: {
-    width: "70%",
+    width: "100%",
     display: "flex",
     gap: "10px",
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-around",
+    justifyContent: "space-evenly",
   },
   pLink: {
     cursor: "pointer",
     transition: "transform .2s",
     ":hover": {
-      "transform": "scale(1.2)"
-    }
+      transform: "scale(1.2)",
+    },
+  },
+  button: {
+    fontWeight: "bold",
+    fontSize: "0.7rem",
+    margin: 0,
+    cursor: "pointer",
+    padding: "5px 7px",
+    ":hover": {},
+  },
+  button55: {
+    borderRadius: "8px",
+    padding: "15px",
+    backgroundColor: "transparent",
+    cursor: "pointer",
+    border: "2px solid #2D4356",
+    color: "#2D4356",
+    transition: "0.3s",
+    ":hover": {
+      backgroundColor: "#2D4356",
+      color: "#fff3bfd7",
+    },
   },
   centerArea: {
     paddingTop: "60px",
@@ -178,12 +221,12 @@ const styles = stylex.create({
     backgroundColor: color,
     borderColor: {
       default: isActive ? "#fff3bfd7" : color,
-      ":active": " #fff3bfd7"
+      ":active": " #fff3bfd7",
     },
     cursor: "pointer",
     opacity: {
       default: isActive ? 0.4 : 0.8,
-      ":active": 0.4
+      ":active": 0.4,
     },
     boxShadow: isActive
       ? `0 0 20px 5px ${color}, rgba(255, 255, 255, 0.5) 0px 0px 20px`
@@ -204,21 +247,31 @@ const styles = stylex.create({
   }),
 
   topPanelIn: {
-    fontFamily: "Roboto Mono, monospace",
-    fontSize: "1.5rem",
+    // fontFamily: "Roboto Mono, monospace",
+    fontSize: "1.1rem",
     color: "#fff3bfd7",
-
-  }
+    height: "50%",
+    width: "40%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
 });
 
 export default function Todo() {
-  // redux related 
-  const userEmail: string = useAppSelector((state) => state.AuthReducer.authValue.email);
-  const uid: string = useAppSelector((state) => state.AuthReducer.authValue.uid);
-  const token: string = useAppSelector((state) => state.AuthReducer.authValue.token);
+  // redux related
+  const userEmail: string = useAppSelector(
+    (state) => state.AuthReducer.authValue.email
+  );
+  const uid: string = useAppSelector(
+    (state) => state.AuthReducer.authValue.uid
+  );
+  const token: string = useAppSelector(
+    (state) => state.AuthReducer.authValue.token
+  );
   // const authStatus: boolean = useAppSelector((state) => state.AuthReducer.authValue.isLoggedIn);
 
-  const dispatch = useDispatch()
+  const dispatch = useDispatch();
   const router = useRouter();
   // states
   const [isDropdownVisible, setIsDropdownVisible] = useState(false);
@@ -239,9 +292,12 @@ export default function Todo() {
   const [userSelectedPattern, setUserSelectedPattern] = useState<string[]>([]);
   const [message, setMessage] = useState("");
   const [score, setScore] = useState<number>(0);
+  const [oldScore, setOldScore] = useState<number>(0);
+  const [showLeaderBoardModel, setShowLeaderBoardModel] = useState(false);
 
+  const [showHelpBox, setShowHelpBox] = useState(false);
 
-  // sounds path 
+  // sounds path
   type Color = keyof typeof sounds;
   const colors: Color[] = ["red", "blue", "green", "yellow"];
 
@@ -303,10 +359,10 @@ export default function Todo() {
         setTimeout(nextLevel, 1000);
       }
     } else {
-      const oldScore = await getScore(uid)
-      if(oldScore && oldScore < score){
-        storeScore(uid,score); // store score database
+      if (oldScore && oldScore < gameLevel) {
+        storeScore(uid, gameLevel); // store score database
       }
+      // alert("Game Over! Press Start to Retry."+ gameLevel);
       setMessage("Game Over! Press Start to Retry.");
       setIsGameOver(true);
       setGameOverVisible(true);
@@ -318,7 +374,7 @@ export default function Todo() {
       setGameOverStyle(true);
       setTimeout(() => {
         setGameOverStyle(false);
-      }, 500)
+      }, 500);
     }
   };
 
@@ -328,19 +384,29 @@ export default function Todo() {
 
   useEffect(() => {
     setTimeout(() => {
-      setGameOverVisible(false)
-    }, 2500)
-  }, [gameOverVisible])
+      setGameOverVisible(false);
+    }, 2500);
+  }, [gameOverVisible]);
 
   const logout = () => {
-    dispatch(updateAuthDetails({
-      email: "",
-      uid: "",
-      token: "",
-      isLoggedIn: false,
-    }));
-    router.push('/');
-  }
+    dispatch(
+      updateAuthDetails({
+        email: "",
+        uid: "",
+        token: "",
+        isLoggedIn: false,
+      })
+    );
+    router.push("/");
+  };
+
+  const getHelp = () => {
+    setShowHelpBox(true);
+  };
+
+  const showLeaderBoard = () => {
+    setShowLeaderBoardModel(true);
+  };
 
   useEffect(() => {
     const unsubscribe = authStateListener((user) => {
@@ -359,7 +425,7 @@ export default function Todo() {
     });
 
     return () => unsubscribe();
-  }, [uid])
+  }, [uid]);
 
   useEffect(() => {
     const checkEmailVerification = async () => {
@@ -374,44 +440,80 @@ export default function Todo() {
     return () => clearTimeout(timer);
   }, []);
 
+  const fetchScore = async () => {
+    const oldScore = await getScore(uid);
+    setOldScore(oldScore);
+    // console.log("Old score:", oldScore);
+  };
+
+  useEffect(() => {
+    fetchScore();
+  }, []);
+
   if (loading) {
-    return <Loader />
+    return <Loader />;
   }
 
   if (authStatus) {
     return (
       <div {...stylex.props(styles.main(gameOverStyle))}>
         <div {...stylex.props(styles.header)}>
-          <h1 {...stylex.props(styles.heading)}>{isGameOver ? "Game Over" : "Simon Game"}</h1>
+          <h1 {...stylex.props(styles.heading)}>
+            {isGameOver ? "Game Over" : "Simon Game"}
+          </h1>
         </div>
 
-        <div  {...stylex.props(styles.section)}>
-          <div {...stylex.props(styles.topPanel(gameLevel > 0))}>
-            {
-              gameLevel > 0 && (
-                <div {...stylex.props(styles.topPanelIn)}>
-                  <p>
-                    Score: <span style={{ fontWeight: "600" }}>{gameLevel}</span>
-                  </p>
-                </div>
-              )
-            }
+        <div {...stylex.props(styles.section)}>
+          <div {...stylex.props(styles.topPanel( oldScore > 0))}>
+            <div {...stylex.props(styles.topPanelIn)}>
+              {gameLevel > 0 && (
+                <p>
+                  Score: <span style={{ fontWeight: "600" }}>{gameLevel}</span>
+                </p>
+              )}
+
+              {oldScore > 0 && (
+                <p>
+                  High Score:{" "}
+                  <span style={{ fontWeight: "600" }}>{oldScore}</span>
+                </p>
+              )}
+            </div>
+
+            {/* drop down section */}
             <div {...stylex.props(styles.pf)} onClick={toggleDropdown}>
-              <p>{userEmail.split("@")[0]}
-                <span>
-                  <Image
-                    alt="arrow"
-                    src={isDropdownVisible ? UpArrow : DownArrow}
-                    width={20}
-                    height={20}
-                  />
-                </span>
-              </p>
+              <p {...stylex.props(styles.truncatedText)}>{userEmail}</p>
+              <Image
+                alt="arrow"
+                src={DownArrow}
+                width={18}
+                height={18}
+                {...(isDropdownVisible
+                  ? stylex.props(styles.arrowIconOpen)
+                  : stylex.props(styles.arrowIcon))}
+                style={{
+                  transition: "0.3s",
+                  cursor: "pointer",
+                }}
+              />
+
               {isDropdownVisible && (
                 <ul {...stylex.props(styles.dropdown)}>
-                  <li {...stylex.props(styles.dropdownItem)} onClick={logout}>Logout</li>
-                  <li {...stylex.props(styles.dropdownItem)} style={{ cursor: "not-allowed" }} >Account</li>
-                  <li {...stylex.props(styles.dropdownItem)} style={{ cursor: "not-allowed" }} >Settings</li>
+                  <li {...stylex.props(styles.dropdownItem)} onClick={logout}>
+                    Logout
+                  </li>
+                  <li
+                    {...stylex.props(styles.dropdownItem)}
+                    style={{ cursor: "not-allowed" }}
+                  >
+                    Account
+                  </li>
+                  <li
+                    {...stylex.props(styles.dropdownItem)}
+                    style={{ cursor: "not-allowed" }}
+                  >
+                    Settings
+                  </li>
                 </ul>
               )}
             </div>
@@ -419,45 +521,88 @@ export default function Todo() {
 
           <div {...stylex.props(styles.centerArea)}>
             <div {...stylex.props(styles.row)}>
-              <button {...stylex.props(styles.btn("rgb(211, 11, 11)", activeButton === 'red'))} onClick={() => handleUserClick('red')} ></button>
-              <button {...stylex.props(styles.btn("rgb(18, 225, 18)", activeButton === 'green'))} onClick={() => handleUserClick('green')} ></button>
+              <button
+                {...stylex.props(
+                  styles.btn("rgb(211, 11, 11)", activeButton === "red")
+                )}
+                onClick={() => handleUserClick("red")}
+              ></button>
+              <button
+                {...stylex.props(
+                  styles.btn("rgb(18, 225, 18)", activeButton === "green")
+                )}
+                onClick={() => handleUserClick("green")}
+              ></button>
             </div>
             <div {...stylex.props(styles.row)}>
-              <button {...stylex.props(styles.btn("rgb(13, 51, 222)", activeButton === 'blue'))} onClick={() => handleUserClick('blue')} ></button>
-              <button {...stylex.props(styles.btn("rgb(156, 186, 9)", activeButton === 'yellow'))} onClick={() => handleUserClick('yellow')} ></button>
+              <button
+                {...stylex.props(
+                  styles.btn("rgb(13, 51, 222)", activeButton === "blue")
+                )}
+                onClick={() => handleUserClick("blue")}
+              ></button>
+              <button
+                {...stylex.props(
+                  styles.btn("rgb(156, 186, 9)", activeButton === "yellow")
+                )}
+                onClick={() => handleUserClick("yellow")}
+              ></button>
             </div>
           </div>
 
-          <div  {...stylex.props(styles.bottomPanel)}>
+          <div {...stylex.props(styles.bottomPanel)}>
             <div {...stylex.props(styles.bottomPanelIn)}>
               {/* <p>{formatTime(timeElapsed)}</p> */}
               {/* <p>score:15</p> */}
-              <p {...stylex.props(styles.pLink)} onClick={startGame}>
+              <button {...stylex.props(styles.button55)} onClick={startGame}>
                 {isGameOver ? "Start again" : "Start"}
-              </p>
-              <p style={{ cursor: "not-allowed" }} {...stylex.props(styles.pLink)}  >Push | Play</p>
-              <p style={{ cursor: "not-allowed" }}  {...stylex.props(styles.pLink)}  >Mode</p>
-              <p {...stylex.props(styles.pLink)}  >leaderboard</p>
+              </button>
+              {/* <button
+                style={{ cursor: "not-allowed" }}
+                {...stylex.props(styles.pLink)}
+              >
+                Push | Play
+              </button> */}
+              {/* <button
+                style={{ cursor: "not-allowed" }}
+                {...stylex.props(styles.pLink)}
+              >
+                Mode
+              </button> */}
+              <button
+                {...stylex.props(styles.button55)}
+                onClick={showLeaderBoard}
+              >
+                leaderboard
+              </button>
+              <button {...stylex.props(styles.button55)} onClick={getHelp}>
+                {/* <Image src={Help} alt="help" width={30} height={30} /> */}
+                Help
+              </button>
             </div>
           </div>
         </div>
 
-        {
-          emaiVerified === false &&
-          <PopUp
-            props="Please check your email to verify your account. After verifying, refresh this page to continue."
-          />
-        }
+        {emaiVerified === false && (
+          <PopUp props="Please check your email to verify your account. After verifying, refresh this page to continue." />
+        )}
 
-
-        {gameOverVisible &&
+        {gameOverVisible && (
           <GameOverPopup
-            props={`Your score set it into leaderboard : ${score}`}
+            props={`Your High score set it into leaderboard : ${
+              oldScore < score ? score : oldScore
+            }`}
           />
-        }
+        )}
+
+        {showHelpBox && <HelpModel onClose={() => setShowHelpBox(false)} />}
+
+        {showLeaderBoardModel && (
+          <LeaderBoard onClose={() => setShowLeaderBoardModel(false)} />
+        )}
       </div>
     );
   } else {
-    router.push('/');
+    router.push("/");
   }
 }
